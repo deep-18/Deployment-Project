@@ -1,40 +1,32 @@
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
-metadata:
-  name:  api
+metadata: 
+  name: api
   namespace: three-tier
-  labels:
-    name:  api
-spec:
-  strategy:
+  labels: 
+    role: api
+    env: demo
+spec: 
+  replicas: 2
+  strategy: 
+    type: RollingUpdate
     rollingUpdate:
       maxSurge: 1
-      maxUnavailable: 1
-    type: RollingUpdate
+      maxUnavailable: 25%
+  selector: 
+    matchLabels:
+      role: api
   template:
     metadata:
       labels:
-        name:  api
+        role: api
     spec:
+      imagePullSecrets:
+      - name: ecr-registry-secret
       containers:
-      - image:  911264217807.dkr.ecr.us-east-1.amazonaws.com/webapp/backend
-        name:  frontend-image
-        resources:
-          requests:
-            cpu: "20m"
-            memory: "55M"
-        livenessProbe:
-          httpGet:
-            path: /_status/healthz
-            port: 3500
-          initialDelaySeconds: 90
-          timeoutSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /_status/healthz
-            port: 3500
-          initialDelaySeconds: 30
-          timeoutSeconds: 10
+      - name: api
+        image: 911264217807.dkr.ecr.us-east-1.amazonaws.com/webapp/backend
+        imagePullPolicy: Always
         env:
           - name: MONGO_CONN_STR
             value: mongodb://mongodb-svc:27017/todo?directConnection=true
@@ -47,9 +39,19 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: mongo-sec
-                key: password       
+                key: password
         ports:
-        - containerPort:  3500
-          name:  api
-      restartPolicy: Always
-      imagePullPolicy: Always
+        - containerPort: 3500
+        livenessProbe: 
+          httpGet:
+            path: /ok
+            port: 3500
+          initialDelaySeconds: 2
+          periodSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /ok
+            port: 3500
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1
